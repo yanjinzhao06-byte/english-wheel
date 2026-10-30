@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#ffe3f1">
+<title>🧩 数据恢复 · 英语轮盘</title>
+<style>
+  :root{ --pink:#ff9ec7; --pink-d:#ff6fa5; --ink:#4b3a55; --ink-2:#7d6b88; --ink-3:#a99cb3; }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; padding:calc(20px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));
+    font-family: ui-rounded, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+    color:var(--ink);
+    background: linear-gradient(165deg,#fff6fb 0%, #f2f9ff 52%, #fdf6ff 100%);
+    min-height:100vh;
+  }
+  .wrap{ max-width:560px; margin:0 auto; }
+  h1{ font-size:22px; margin:0 0 6px; text-align:center;
+      background:linear-gradient(96deg,#ff6fa5,#5cb8f5 65%,#c9a7ff);
+      -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .sub{ text-align:center; color:var(--ink-3); font-size:13px; margin:0 0 18px; line-height:1.6; }
+  .panel{ background:rgba(255,255,255,.88); border:2px solid #fff; border-radius:24px;
+          padding:18px 16px; box-shadow:0 10px 30px rgba(180,150,210,.18); }
+  .row{ display:flex; align-items:center; justify-content:space-between; gap:10px;
+        padding:11px 14px; margin-bottom:9px; border-radius:16px; background:#faf6ff; border:2px solid #f1e9fa; }
+  .k{ font-size:13.5px; font-weight:700; color:var(--ink-2); }
+  .v{ font-size:19px; font-weight:800; color:var(--pink-d); }
+  .hint{ font-size:12px; color:var(--ink-3); line-height:1.7; margin:12px 2px 0; }
+  .btn{ display:block; width:100%; border:none; border-radius:20px; padding:16px;
+        font-size:17px; font-weight:800; letter-spacing:.5px; color:#fff; margin-top:14px;
+        background:linear-gradient(150deg,#ffa9cf,#ff86b9 45%,#c9a7ff);
+        box-shadow:0 6px 0 #e0729f, 0 12px 22px rgba(255,120,175,.35); cursor:pointer; }
+  .btn:active{ transform:scale(.96); box-shadow:0 2px 0 #e0729f; }
+  .btn.ghost{ background:#fff; color:var(--ink-2); box-shadow:0 4px 0 rgba(190,160,210,.18); border:2px solid #f2eaf8; }
+  .btn.ghost:active{ transform:scale(.97); box-shadow:0 1px 0 rgba(190,160,210,.2); }
+  .ok{ display:none; margin-top:14px; padding:12px 14px; border-radius:16px; text-align:center;
+       font-size:14px; font-weight:800; color:#1f7a4d;
+       background:linear-gradient(160deg,#eafff2,#d6f8e5); border:2px solid #5cc98a; line-height:1.6; }
+  .ok.show{ display:block; }
+  .cur{ font-size:12.5px; color:var(--ink-3); text-align:center; margin-top:14px; line-height:1.7; }
+  a{ color:#2c82b5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🧩 数据恢复</h1>
+  <p class="sub">把之前丢掉的记录补回来（只写本机这个浏览器，写完一直有效）</p>
+
+  <div class="panel">
+    <div class="row"><span class="k">累计复习次数</span><span class="v" id="vRounds">111</span></div>
+    <div class="row"><span class="k">累计答对单词</span><span class="v" id="vWords">4334</span></div>
+    <div class="row"><span class="k">打卡天数</span><span class="v" id="vDays">34</span></div>
+
+    <button class="btn" id="btnRestore">一键恢复这些数据</button>
+    <button class="btn ghost" id="btnClear">清空本机打卡记录（重来）</button>
+
+    <div class="ok" id="okBox"></div>
+    <p class="cur" id="curBox">正在读取当前数据…</p>
+
+    <p class="hint">
+      · 点「一键恢复」后，回到首页就是 <b>累计复习 111 次 / 累计答对 4334 词 / 打卡 34 天</b>（最近 34 天连着到今天，所以今天算已打卡）。<br>
+      · 只影响本机浏览器，换手机或换浏览器要再打开这个页面点一次。<br>
+      · 恢复后正常玩会接着往上加，不会清零。<br>
+      · 这条记录是按日期写好的，日历里最近 34 天会显示成有颜色的格子。
+    </p>
+  </div>
+
+  <p class="cur"><a href="index.html">← 返回单词轮盘</a></p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var KEY = 'enMatch.checkin.v1';
+  var TARGET = { rounds: 111, words: 4334, days: 34, secsPerRound: 300 };
+
+  var $ = function (s) { return document.querySelector(s); };
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function keyOf(dt) { return dt.getFullYear() + '-' + pad(dt.getMonth() + 1) + '-' + pad(dt.getDate()); }
+
+  function build() {
+    var days = {};
+    var n = Math.max(1, TARGET.days), R = TARGET.rounds, W = TARGET.words;
+    var rBase = Math.floor(R / n), rMore = R % n;
+    var wBase = Math.floor(W / n), wMore = W % n;
+    var now = new Date(), secs = 0;
+    for (var ago = n - 1; ago >= 0; ago--) {
+      var dt = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ago);
+      var dr = rBase + (ago < rMore ? 1 : 0);
+      var dw = wBase + (ago < wMore ? 1 : 0);
+      days[keyOf(dt)] = { rounds: dr, words: dw, secs: dr * TARGET.secsPerRound };
+      secs += dr * TARGET.secsPerRound;
+    }
+    return { days: days, total: { rounds: R, words: W, secs: secs } };
+  }
+
+  function read() {
+    try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch (e) { return null; }
+  }
+
+  function showCurrent() {
+    var c = read();
+    var box = $('#curBox');
+    if (!c) { box.innerHTML = '当前：<b>没有任何打卡记录</b>'; return; }
+    var t = c.total || { rounds: 0, words: 0 };
+    var dn = Object.keys(c.days || {}).length;
+    box.innerHTML = '当前本机记录：复习 <b>' + (t.rounds || 0) + '</b> 次 · 答对 <b>' + (t.words || 0) +
+      '</b> 词 · 打卡 <b>' + dn + '</b> 天';
+  }
+
+  function ok(msg) {
+    var b = $('#okBox');
+    b.innerHTML = msg;
+    b.classList.add('show');
+  }
+
+  $('#btnRestore').addEventListener('click', function () {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(build()));
+      ok('✅ 已恢复：累计复习 111 次 · 累计答对 4334 词 · 打卡 34 天<br><br>' +
+         '<a href="index.html">点这里回首页看看</a>');
+      showCurrent();
+    } catch (e) {
+      ok('⚠️ 写入失败：' + e.message + '<br>可能是浏览器隐私模式 / 存储被禁用。');
+    }
+  });
+
+  $('#btnClear').addEventListener('click', function () {
+    try {
+      localStorage.removeItem(KEY);
+      ok('🧹 已清空本机打卡记录，回首页就是 0。');
+      showCurrent();
+    } catch (e) {
+      ok('⚠️ 清空失败：' + e.message);
+    }
+  });
+
+  showCurrent();
+})();
+</script>
+</body>
+</html>
