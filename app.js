@@ -129,6 +129,40 @@
       return { days: days, total: total };
     } catch (e) { return { days: {}, total: { rounds: 0, words: 0, secs: 0 } }; }
   }
+  /* ===========================================================
+   *  📦 数据基线：旧记录丢了，这里补一份
+   *  只在本地「完全没有」打卡记录时写入一次，之后照常累计。
+   *  想关掉：把 BASELINE.days / rounds / words 改成 0 即可。
+   * =========================================================== */
+  const BASELINE = { days: 34, rounds: 111, words: 4334, secsPerRound: 300 };
+  function buildBaselineCheckin() {
+    const days = {};
+    const n = Math.max(1, BASELINE.days), R = BASELINE.rounds, W = BASELINE.words;
+    const rBase = Math.floor(R / n), rMore = R % n;
+    const wBase = Math.floor(W / n), wMore = W % n;
+    const now = new Date();
+    const keyOf = dt => dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+    let secs = 0;
+    for (let ago = n - 1; ago >= 0; ago--) {
+      const dt = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ago);
+      const dr = rBase + (ago < rMore ? 1 : 0);
+      const dw = wBase + (ago < wMore ? 1 : 0);
+      days[keyOf(dt)] = { rounds: dr, words: dw, secs: dr * BASELINE.secsPerRound };
+      secs += dr * BASELINE.secsPerRound;
+    }
+    return { days: days, total: { rounds: R, words: W, secs: secs } };
+  }
+  function seedBaseline() {
+    try {
+      const raw = localStorage.getItem(CKEY);
+      const old = raw ? JSON.parse(raw) : null;
+      const has = old && ((old.days && Object.keys(old.days).length) || (old.total && (old.total.rounds || old.total.words)));
+      if (has) return false;
+      localStorage.setItem(CKEY, JSON.stringify(buildBaselineCheckin()));
+      return true;
+    } catch (e) { return false; }
+  }
+  seedBaseline();
   const checkin = loadCheckin();
   function saveCheckin() { try { localStorage.setItem(CKEY, JSON.stringify(checkin)); } catch (e) {} }
 
