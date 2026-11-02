@@ -399,10 +399,81 @@
     } catch (e) {}
   }
 
+  /** 朗读整句（force = 手动点按钮时不受「朗读单词」开关限制） */
+  function speakSentence(text, force) {
+    if (!text) return;
+    if (!force && !settings.speak) return;
+    if (!('speechSynthesis' in window)) return;
+    try {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'en-US'; u.rate = 0.9; u.pitch = 1.02;
+      speechSynthesis.cancel();
+      setTimeout(() => { try { speechSynthesis.speak(u); } catch (e) {} }, 40);
+    } catch (e) {}
+  }
+
+  /* ===========================================================
+   *  📝 例句卡：答对后在轮盘下面显示句子（目标词标红 + 中文翻译）
+   * =========================================================== */
+  function sentenceOf(w) {
+    if (!w) return null;
+    const rec = SENT[w.key];
+    return (rec && rec[0]) ? rec : null;
+  }
+  /** 把句子里的目标词包成 <b class="sc-word"> */
+  /** 词形可能带 / 或括号（practise/-ice、neighbo(u)r）→ 生成所有可能写法 */
+  function wordForms(word) {
+    const out = [];
+    String(word || '').split('/').forEach(part => {
+      if (!part) return;
+      const keep = part.replace(/\(([^)]*)\)/g, '$1');
+      const drop = part.replace(/\(([^)]*)\)/g, '');
+      [part, keep, drop].forEach(v => { if (v && out.indexOf(v) < 0) out.push(v); });
+    });
+    return out;
+  }
+  function highlightSentence(en, word) {
+    const safe = escapeHtml(en);
+    const variants = wordForms(word);
+    for (let i = 0; i < variants.length; i++) {
+      const v = variants[i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const probe = new RegExp('(^|[^A-Za-z])' + v + '(?![A-Za-z])', 'i');
+      if (!probe.test(safe)) continue;
+      const re = new RegExp('(^|[^A-Za-z])(' + v + ')(?![A-Za-z])', 'gi');
+      return safe.replace(re, (m, p1, p2) => p1 + '<b class="sc-word">' + p2 + '</b>');
+    }
+    return safe;
+  }
+  function renderSentence(w) {
+    const card = $('#sentenceCard');
+    if (!card) return null;
+    const rec = sentenceOf(w);
+    if (!rec) { card.hidden = true; card.dataset.key = ''; return null; }
+    card.dataset.key = w.key;
+    $('#scTag').textContent = '例句 · ' + w.en;
+    $('#scEn').innerHTML = highlightSentence(rec[0], w.en);
+    $('#scZh').innerHTML = highlightPos(rec[1] || '');
+    card.hidden = false;
+    requestAnimationFrame(() => {
+      const r = card.getBoundingClientRect();
+      const vh = window.innerHeight;
+      if (r.bottom > vh - 4) {
+        const dy = Math.min(r.bottom - vh + 4, r.height + 8);
+        try { window.scrollBy({ top: dy, behavior: 'smooth' }); } catch (e) { window.scrollBy(0, dy); }
+      }
+    });
+    return rec;
+  }
+  function hideSentence() {
+    const card = $('#sentenceCard');
+    if (card) { card.hidden = true; card.dataset.key = ''; }
+  }
+
   /* ===========================================================
    *  词库
    * =========================================================== */
   const BANK = window.WORD_BANK || {};
+  const SENT = window.SENTENCES || {};   // 例句库：key -> [英文句子, 中文翻译]
   const UNITS = Object.keys(BANK);
   function unitWords(u) { return (BANK[u] && BANK[u].words) || []; }
   function totalWords() { return UNITS.reduce((n, u) => n + unitWords(u).length, 0); }
@@ -829,7 +900,8 @@
 
     Haptics.match();
     Sound.correct();
-    if (settings.speak) speak(w.en);
+    const sent = renderSentence(w);
+    if (settings.speak) { if (sent) speakSentence(sent[0]); else speak(w.en); }
 
     if (optEl) {
       optEl.classList.add('ok');
@@ -864,6 +936,7 @@
   }
 
   function onWrong(w, optEl) {
+    hideSentence();
     state.wrong++;
     state.combo = 0;
     state.roundWrongKeys.add(w.key);
@@ -910,6 +983,7 @@
    *  一局的开始 / 重开
    * =========================================================== */
   function startRound() {
+    hideSentence();
     const n = roundSize();
     state.roundWords = pickWords(n);
     if (!state.roundWords.length) {
@@ -986,6 +1060,7 @@
 
   function restartRound() {
     if (!state.roundWords.length) return;
+    hideSentence();
     state.matched = 0; state.combo = 0; state.maxCombo = 0; state.score = 0; state.wrong = 0;
     state.locked = false;
     state.answered = new Set();
@@ -1486,6 +1561,15 @@
       wrap.addEventListener('click', onDrumClick);
       wrap.addEventListener('wheel', onDrumWheel, { passive: false });
     }
+
+    // 例句朗读按钮
+    const sayBtn = $('#btnSaySentence');
+    if (sayBtn) sayBtn.addEventListener('click', () => {
+      const card = $('#sentenceCard');
+      const rec = (card && card.dataset.key) ? SENT[card.dataset.key] : null;
+      Haptics.tap(); Sound.tap();
+      if (rec && rec[0]) speakSentence(rec[0], true);
+    });
 
     // 选项（事件委托）
     const opts = $('#opts');
