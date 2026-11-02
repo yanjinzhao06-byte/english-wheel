@@ -148,6 +148,16 @@
     </section>
   </main>
 
+  <!-- 例句：答对后出现在轮盘下面 -->
+  <aside class="sentence-card" id="sentenceCard" hidden>
+    <div class="sc-top">
+      <span class="sc-tag" id="scTag">例句</span>
+      <button type="button" class="sc-say" id="btnSaySentence">🔊 朗读</button>
+    </div>
+    <p class="sc-en" id="scEn"></p>
+    <p class="sc-zh" id="scZh"></p>
+  </aside>
+
   <div class="gamebar segbar" id="segBar" hidden>
     <button class="btn btn-ghost" id="btnPrevSeg">⏮ 上一段</button>
     <button class="btn btn-ghost" id="btnNextSeg">⏭ 下一段</button>
@@ -241,6 +251,7 @@
 <!-- 轻提示 -->
 <div class="toast" id="toast"></div>
 <script src="words.js"></script>
+<script src="sentences.js"></script>
 <script src="app.js"></script>
 <script>
 // 注册 Service Worker：装到主屏幕后没网也能玩（file:// 打开时自动跳过）
