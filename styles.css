@@ -747,6 +747,45 @@ button{ font-family:inherit; color:inherit; cursor:pointer; touch-action:manipul
   .quiz-head{ font-size:12.5px; }
 }
 
+
+/* ===========================================================
+   📝 例句卡（答对后出现在轮盘下面）
+   =========================================================== */
+.sentence-card{
+  margin-top:10px; padding:11px 13px 12px;
+  border-radius:18px; border:2px solid #ffe1ee;
+  background:linear-gradient(170deg,#fffdfe,#fff6fb);
+  box-shadow:0 5px 16px rgba(180,150,210,.14);
+  animation: fadeUp .3s ease;
+}
+.sentence-card[hidden]{ display:none !important; }
+.sc-top{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:7px; }
+.sc-tag{
+  font-size:11px; font-weight:800; color:#c8407e; background:#ffe9f3;
+  border-radius:99px; padding:3px 10px; max-width:70%; overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap;
+}
+.sc-say{
+  flex:0 0 auto; border:2px solid #ffd9e8; background:#fff; color:#c8407e;
+  font-size:12px; font-weight:800; border-radius:99px; padding:5px 12px;
+  box-shadow:0 2px 0 rgba(255,150,195,.18);
+  transition: transform .16s cubic-bezier(.34,1.56,.64,1), box-shadow .16s;
+}
+.sc-say:active{ transform:scale(.93); box-shadow:0 1px 0 rgba(255,150,195,.2); }
+.sc-en{ margin:0 0 5px; font-size:15px; line-height:1.52; color:#3c3346; font-weight:600; }
+.sc-en b.sc-word{
+  color:#e0315e; font-weight:900; background:rgba(224,49,94,.09);
+  border-radius:5px; padding:0 2px; text-decoration:underline;
+  text-decoration-color:rgba(224,49,94,.45); text-underline-offset:3px;
+}
+.sc-zh{ margin:0; font-size:13px; line-height:1.55; color:#8a7c96; }
+.sc-zh i.pos{ font-style:normal; font-weight:800; color:#a58ac9; font-size:.9em; }
+
+@media (min-width:620px){
+  .sc-en{ font-size:16.5px; }
+  .sc-zh{ font-size:14px; }
+}
+
 @media (prefers-reduced-motion: reduce){
   *{ animation-duration:.01ms !important; transition-duration:.01ms !important; }
 }
