@@ -5,7 +5,7 @@
  *  ⚠️ 改完网页文件后，把下面的版本号往上加一（再上传），
  *     手机上的旧缓存才会更新。
  * =========================================================== */
-const VERSION = 'v3';
+const VERSION = 'v4';
 const CACHE = 'english-wheel-' + VERSION;
 
 const ASSETS = [
@@ -14,6 +14,7 @@ const ASSETS = [
   './styles.css',
   './app.js',
   './words.js',
+  './sentences.js',
   './manifest.webmanifest',
   './manifest.json',
   './icon-192.png',
