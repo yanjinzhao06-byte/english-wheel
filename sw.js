@@ -1,11 +1,10 @@
 /* ===========================================================
  *  英语 · 单词轮盘 · 离线缓存 Service Worker
- *  —— 装到主屏幕后，没网也能打开
+ *  —— 联网时优先拿新文件（改完刷新就生效），断网时用缓存
  *
- *  ⚠️ 改完网页文件后，把下面的版本号往上加一（再上传），
- *     手机上的旧缓存才会更新。
+ *  ⚠️ 改完网页文件后，把下面的版本号往上加一（再上传）。
  * =========================================================== */
-const VERSION = 'v9';
+const VERSION = 'v10';
 const CACHE = 'english-wheel-' + VERSION;
 
 const ASSETS = [
@@ -20,7 +19,7 @@ const ASSETS = [
   './icon-192.png',
   './icon-512.png',
   './apple-touch-icon.png',
-  /* 学习中心 */
+  './restore.html',
   './study.html',
   './study.css',
   './study.js',
@@ -53,26 +52,28 @@ self.addEventListener('fetch', e => {
   try { url = new URL(req.url); } catch (err) { return; }
   if (url.origin !== self.location.origin) return;
 
-  // 页面导航：优先用缓存里的首页（离线可用）
-  if (req.mode === 'navigate') {
+  // 图片：缓存优先（省流量、不常变）
+  if (/\.(png|jpe?g|webp|gif|ico|svg)$/i.test(url.pathname)) {
     e.respondWith(
-      fetch(req).then(res => {
-        const copy = res.clone();
-        caches.open(CACHE).then(c => c.put('./index.html', copy)).catch(() => {});
+      caches.match(req).then(hit => hit || fetch(req).then(res => {
+        if (res && res.status === 200) {
+          const copy = res.clone();
+          caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {});
+        }
         return res;
-      }).catch(() => caches.match('./index.html').then(r => r || caches.match('./')))
+      }).catch(() => caches.match(req)))
     );
     return;
   }
 
-  // 其它资源：缓存优先
+  // 页面 / JS / CSS / JSON：联网优先，断网回退缓存
   e.respondWith(
-    caches.match(req).then(hit => hit || fetch(req).then(res => {
+    fetch(req).then(res => {
       if (res && res.status === 200 && res.type === 'basic') {
         const copy = res.clone();
         caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {});
       }
       return res;
-    }).catch(() => caches.match(req)))
+    }).catch(() => caches.match(req).then(hit => hit || caches.match('./index.html')))
   );
 });
