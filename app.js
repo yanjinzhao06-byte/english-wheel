@@ -126,8 +126,8 @@
           total.secs += days[k].secs || 0;
         });
       }
-      return { days: days, total: total };
-    } catch (e) { return { days: {}, total: { rounds: 0, words: 0, secs: 0 } }; }
+      return { days: days, total: total, cards: Math.max(0, Number(c.cards) || 0) };
+    } catch (e) { return { days: {}, total: { rounds: 0, words: 0, secs: 0 }, cards: 0 }; }
   }
   /* ===========================================================
    *  📦 数据基线：旧记录丢了，这里补一份
@@ -150,7 +150,7 @@
       days[keyOf(dt)] = { rounds: dr, words: dw, secs: dr * BASELINE.secsPerRound };
       secs += dr * BASELINE.secsPerRound;
     }
-    return { days: days, total: { rounds: R, words: W, secs: secs } };
+    return { days: days, total: { rounds: R, words: W, secs: secs }, cards: 0 };
   }
   function seedBaseline() {
     try {
@@ -165,6 +165,35 @@
   seedBaseline();
   const checkin = loadCheckin();
   function saveCheckin() { try { localStorage.setItem(CKEY, JSON.stringify(checkin)); } catch (e) {} }
+
+  /* ===========================================================
+   *  🎫 补签卡
+   *  连续答对 2 个词 → 得 1 张；持有上限 CARD_MAX 张
+   *  在打卡日历里点「没打卡」的日子 → 消耗 1 张补签
+   * =========================================================== */
+  const CARD_MAX = 5;
+  function cardsNow() { return Math.max(0, Number(checkin.cards) || 0); }
+  function grantCard() {
+    const cur = cardsNow();
+    if (cur >= CARD_MAX) return false;
+    checkin.cards = cur + 1;
+    saveCheckin();
+    syncMakeup();
+    Haptics.match();
+    Sound.tone(1318.5, 0.16, 'triangle', 0.06);
+    toast('🎫 连续答对 2 个，获得 1 张补签卡（' + checkin.cards + ' / ' + CARD_MAX + '）');
+    return true;
+  }
+  function syncMakeup() {
+    const el = $('#makeupCount');
+    if (el) el.textContent = cardsNow();
+    const hint = $('#makeupHint');
+    if (hint) {
+      hint.textContent = cardsNow() > 0
+        ? '点日历里没打卡的日子就能补签 · 连续答对 2 个词再得 1 张'
+        : '连续答对 2 个词得 1 张 · 点没打卡的日子可补签';
+    }
+  }
 
   const dayKey = dt => dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
   const todayKey = () => dayKey(new Date());
@@ -267,16 +296,60 @@
       const d = checkin.days[k];
       const future = dt > today;
       const lv = !d ? 0 : d.words >= 41 ? 4 : d.words >= 21 ? 3 : d.words >= 9 ? 2 : 1;
-      cells.push('<button class="ck-cell lv' + lv + (future ? ' future' : '') +
+      cells.push('<button class="ck-cell lv' + lv + (future ? ' future' : '') + (d && d.make ? ' make' : '') +
         (k === todayKey() ? ' today' : '') + '" data-day="' + k + '"' +
         (future ? ' disabled' : '') + ' aria-label="' + k + '"></button>');
     }
     $('#ckGrid').innerHTML = cells.join('');
+    syncMakeup();
   }
 
   function openCheckin() {
     renderCheckin();
     show('screen-checkin');
+  }
+
+  /* ---------------- 🎫 补签流程 ---------------- */
+  let makeupTarget = null;
+  function dayLabel(k) {
+    const p = String(k).split('-');
+    return Number(p[1]) + '月' + Number(p[2]) + '日';
+  }
+  function openMakeup(k) {
+    makeupTarget = k;
+    $('#mkTitle').textContent = '补签 ' + dayLabel(k) + '？';
+    const sub = $('#mkSub'), btn = $('#mkConfirm');
+    const n = cardsNow();
+    if (n > 0) {
+      sub.innerHTML = '将消耗 <b>1</b> 张补签卡（现在有 <b>' + n + '</b> 张）';
+      btn.disabled = false;
+      btn.textContent = '确定使用';
+    } else {
+      sub.innerHTML = '补签卡不够：连续答对 <b>2</b> 个词就能得 1 张';
+      btn.disabled = true;
+      btn.textContent = '没有补签卡';
+    }
+    $('#makeupOverlay').classList.add('show');
+  }
+  function closeMakeup() {
+    makeupTarget = null;
+    const ov = $('#makeupOverlay');
+    if (ov) ov.classList.remove('show');
+  }
+  function useMakeupCard() {
+    const k = makeupTarget;
+    if (!k) { closeMakeup(); return; }
+    if (cardsNow() <= 0) { closeMakeup(); toast('补签卡不够：连续答对 2 个词就能得 1 张'); return; }
+    checkin.cards = cardsNow() - 1;
+    checkin.days[k] = { rounds: 0, words: 0, secs: 0, make: 1 };
+    saveCheckin();
+    closeMakeup();
+    renderCheckin();
+    syncCheckinCard();
+    syncCounters();
+    Haptics.match();
+    Sound.correct();
+    toast('🎫 已补签 ' + dayLabel(k) + '（还剩 ' + cardsNow() + ' 张）');
   }
 
   /* ===========================================================
@@ -892,6 +965,7 @@
     state.matched++;
     state.combo++;
     state.maxCombo = Math.max(state.maxCombo, state.combo);
+    if (state.combo % 2 === 0) grantCard();
     state.score += 10 + Math.min(state.combo - 1, 5) * 4;
 
     if (!state.roundWrongKeys.has(w.key)) {
@@ -1249,6 +1323,7 @@
     $('#totalWords').textContent = n;
     $('#bankHint').textContent = '共 ' + n + ' 词（' + UNITS.length + ' 个单元）';
     syncCounts();
+    syncMakeup();
     if (settings.unit === 'STAR' || settings.unit === 'WRONG') {
       const c = buildPool(settings.unit).length;
       $('#bankHint').textContent = settings.unit === 'STAR' ? ('⭐ 生词本里有 ' + c + ' 个词') : ('❌ 错题本里有 ' + c + ' 个词');
@@ -1458,12 +1533,15 @@
         const c = e.target.closest('.ck-cell'); if (!c || c.disabled) return;
         const k = c.dataset.day, d = checkin.days[k];
         Haptics.tap(); Sound.tap();
-        const p = k.split('-');
-        const label = Number(p[1]) + '月' + Number(p[2]) + '日';
-        toast(d
-          ? (label + '：' + d.rounds + ' 轮 · ' + d.words + ' 个词 · ' + Math.max(1, Math.round(d.secs / 60)) + ' 分钟')
-          : (label + '：没有打卡 😴'));
+        if (!d) { openMakeup(k); return; }
+        const label = dayLabel(k);
+        toast(label + '：' + (d.make ? '🎫 补签 · ' : '') + d.rounds + ' 轮 · ' + d.words + ' 个词 · ' +
+          Math.max(1, Math.round(d.secs / 60)) + ' 分钟');
       });
+
+      $('#mkConfirm').addEventListener('click', useMakeupCard);
+      $('#mkCancel').addEventListener('click', closeMakeup);
+      $('#makeupOverlay').addEventListener('click', e => { if (e.target === $('#makeupOverlay')) closeMakeup(); });
     }
 
     // 游戏页
@@ -1619,6 +1697,7 @@
     bind();
     syncMenu();
     syncCounts();
+    syncMakeup();
     window.addEventListener('pointerdown', () => Sound.unlock(), { once: true });
     if (!UNITS.length) {
       $('#bankHint').textContent = '⚠️ 没读到词库，请检查 words.js';
