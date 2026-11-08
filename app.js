@@ -308,8 +308,9 @@
       const k = dayKey(dt);
       const d = checkin.days[k];
       const future = dt > today;
-      const lv = !d ? 0 : d.words >= 41 ? 4 : d.words >= 21 ? 3 : d.words >= 9 ? 2 : 1;
-      cells.push('<button class="ck-cell lv' + lv + (future ? ' future' : '') + (d && d.make ? ' make' : '') +
+      // 补签的日子跟正常打卡用同一套颜色（默认按『当天练过一点』的浅档 lv2）
+      const lv = !d ? 0 : d.make ? 2 : d.words >= 41 ? 4 : d.words >= 21 ? 3 : d.words >= 9 ? 2 : 1;
+      cells.push('<button class="ck-cell lv' + lv + (future ? ' future' : '') +
         (k === todayKey() ? ' today' : '') + '" data-day="' + k + '"' +
         (future ? ' disabled' : '') + ' aria-label="' + k + '"></button>');
     }
