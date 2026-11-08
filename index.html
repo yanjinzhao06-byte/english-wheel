@@ -235,6 +235,12 @@
 
   <div class="ck-today" id="ckToday"></div>
 
+  <div class="makeup-bar" id="makeupBar">
+    <span class="mk-ico">🎫</span>
+    <span>补签卡 <b id="makeupCount">0</b></span>
+    <span class="mk-hint" id="makeupHint">连续答对 2 个词得 1 张 · 点没打卡的日子可补签</span>
+  </div>
+
   <div class="ck-head">
     <span>最近 10 周</span>
     <span class="ck-legend">少 <i class="lv0"></i><i class="lv1"></i><i class="lv2"></i><i class="lv3"></i><i class="lv4"></i> 多</span>
@@ -243,10 +249,23 @@
 
   <p class="book-tip">
     · 每天完成 <b>1 轮</b>（把本轮单词全部答对）就算打卡成功<br>
-    · 点格子可以看那天练了多少<br>
+    · 点格子可以看那天练了多少；点<b>没打卡</b>的日子可以用补签卡补上<br>
     · 连续天数断一天就归零，最长连续会一直留着
   </p>
 </section>
+
+<!-- 补签确认 -->
+<div class="overlay" id="makeupOverlay">
+  <div class="sheet sheet-sm">
+    <div class="sheet-emoji">🎫</div>
+    <h2 id="mkTitle">补签这一天？</h2>
+    <p class="sheet-sub" id="mkSub">将消耗 1 张补签卡</p>
+    <div class="sheet-btns">
+      <button class="btn btn-primary" id="mkConfirm">确定使用</button>
+      <button class="btn btn-ghost" id="mkCancel">取消</button>
+    </div>
+  </div>
+</div>
 
 <!-- 轻提示 -->
 <div class="toast" id="toast"></div>
