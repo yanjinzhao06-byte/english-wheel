@@ -173,6 +173,15 @@
    * =========================================================== */
   const CARD_MAX = 5;
   function cardsNow() { return Math.max(0, Number(checkin.cards) || 0); }
+  function floatCard(text) {
+    try {
+      const el = document.createElement('div');
+      el.className = 'card-float';
+      el.textContent = text;
+      document.body.appendChild(el);
+      setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 1300);
+    } catch (e) {}
+  }
   function grantCard() {
     const cur = cardsNow();
     if (cur >= CARD_MAX) return false;
@@ -181,12 +190,16 @@
     syncMakeup();
     Haptics.match();
     Sound.tone(1318.5, 0.16, 'triangle', 0.06);
+    floatCard('🎫 +1');
     toast('🎫 连续答对 2 个，获得 1 张补签卡（' + checkin.cards + ' / ' + CARD_MAX + '）');
     return true;
   }
   function syncMakeup() {
+    const n = cardsNow();
     const el = $('#makeupCount');
-    if (el) el.textContent = cardsNow();
+    if (el) el.textContent = n;
+    const cc = $('#ccCards'); if (cc) cc.textContent = n;
+    const wrap = $('#ccCardsWrap'); if (wrap) wrap.classList.toggle('hot', n > 0);
     const hint = $('#makeupHint');
     if (hint) {
       hint.textContent = cardsNow() > 0
@@ -1680,6 +1693,15 @@
     window.addEventListener('orientationchange', () => setTimeout(() => drum.measure(), 260));
   }
 
+  function clearAppCache() {
+    const done = () => { try { location.reload(); } catch (e) {} };
+    try {
+      if (window.caches && caches.keys) {
+        caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))).then(() => done()).catch(done);
+      } else done();
+    } catch (e) { done(); }
+  }
+
   function maybeShowLongPressHint() {
     const HK = 'enMatch.hint.v2';
     try {
@@ -1699,6 +1721,14 @@
     syncCounts();
     syncMakeup();
     window.addEventListener('pointerdown', () => Sound.unlock(), { once: true });
+    const ver = $('#appVer');
+    if (ver) ver.addEventListener('click', () => {
+      ver.textContent = '更新中…';
+      if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+        navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.map(r => r.unregister()))).catch(() => {});
+      }
+      clearAppCache();
+    });
     if (!UNITS.length) {
       $('#bankHint').textContent = '⚠️ 没读到词库，请检查 words.js';
     }
